@@ -3,21 +3,21 @@ import type { Todo } from "@/types";
 import { TodoItem } from "./TodoItem";
 
 interface TodoListProps {
-  todos: Todo[];
-  refreshing: boolean;
-  onRefresh: () => Promise<void>;
+  todos: any[];
+  refreshing?: boolean;
+  onRefresh?: () => Promise<void>;
   onToggle: (id: string, completed: boolean) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onEdit: (id: string, text: string) => Promise<void>;
+  onEdit?: (id: string, text: string) => Promise<void>;
 }
 
 export function TodoList({
   todos,
-  refreshing,
-  onRefresh,
+  refreshing = false,
+  onRefresh = async () => {},
   onToggle,
   onDelete,
-  onEdit,
+  onEdit = async () => {},
 }: TodoListProps) {
   if (todos.length === 0) {
     return (
@@ -32,15 +32,23 @@ export function TodoList({
   return (
     <FlatList
       data={todos}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <TodoItem
-          todo={item}
-          onToggle={onToggle}
-          onDelete={onDelete}
-          onEdit={onEdit}
-        />
-      )}
+      keyExtractor={(item) => (item.id || item._id).toString()}
+      renderItem={({ item }) => {
+        const normalizedTodo = {
+          ...item,
+          id: item.id || item._id,
+          completed: item.completed !== undefined ? item.completed : item.isCompleted,
+        };
+
+        return (
+          <TodoItem
+            todo={normalizedTodo as Todo}
+            onToggle={onToggle}
+            onDelete={onDelete}
+            onEdit={onEdit}
+          />
+        );
+      }}
       contentContainerStyle={styles.listContent}
       showsVerticalScrollIndicator={false}
       refreshControl={

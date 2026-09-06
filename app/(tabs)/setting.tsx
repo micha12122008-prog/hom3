@@ -1,70 +1,48 @@
-import { useState } from "react";
-import {
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import React from "react";
+import { View, Text, StyleSheet, Switch, TouchableOpacity, Alert, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useTheme } from "@/context/ThemeContext";
-import { getTodos, deleteTodo } from "@/services/api";
 
 export default function SettingsScreen() {
   const { isDarkMode, toggleTheme, colors } = useTheme();
-  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Мутації Convex
+  const clearCompleted = useMutation(api.todos.clearCompleted);
+  const clearAll = useMutation(api.todos.clearAll);
 
   const handleClearCompleted = () => {
     Alert.alert(
       "Очистити виконані",
-      "Ви впевнені, що хочете видалити всі завершені завдання?",
+      "Ви впевнені, що хочете видалити всі виконані завдання?",
       [
         { text: "Скасувати", style: "cancel" },
         {
           text: "Видалити",
           style: "destructive",
           onPress: async () => {
-            try {
-              setIsProcessing(true);
-              const todos = await getTodos();
-              const completedTodos = todos.filter((t) => t.completed);
-              await Promise.all(completedTodos.map((t) => deleteTodo(t.id)));
-              Alert.alert("Успіх", "Виконані завдання видалено.");
-            } catch (error) {
-              Alert.alert("Помилка", "Не вдалося очистити завдання.");
-            } finally {
-              setIsProcessing(false);
-            }
+            const res = await clearCompleted();
+            Alert.alert("Успішно", `Видалено ${res.deletedCount} завдань`);
           },
         },
       ]
     );
   };
 
-  const handleDeleteAll = () => {
+  const handleClearAll = () => {
     Alert.alert(
-      "Видалити всі завдання",
-      "Ви дійсно хочете видалити абсолютно всі завдання? Цю дію неможливо скасувати.",
+      "Видалити ВСІ завдання",
+      "Цю дію неможливо буде скасувати. Видалити всі завдання з хмари?",
       [
         { text: "Скасувати", style: "cancel" },
         {
           text: "Видалити все",
           style: "destructive",
           onPress: async () => {
-            try {
-              setIsProcessing(true);
-              const todos = await getTodos();
-              await Promise.all(todos.map((t) => deleteTodo(t.id)));
-              Alert.alert("Успіх", "Усі завдання успішно видалено.");
-            } catch (error) {
-              Alert.alert("Помилка", "Не вдалося видалити всі завдання.");
-            } finally {
-              setIsProcessing(false);
-            }
+            const res = await clearAll();
+            Alert.alert("Успішно", `Базу очищено. Видалено ${res.deletedCount} завдань`);
           },
         },
       ]
@@ -72,132 +50,77 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={[styles.headerText, { color: colors.text }]}>Налаштування</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={["top"]}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={[styles.title, { color: colors.text }]}>⚙️ Налаштування</Text>
 
-        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.settingRow}>
-            <View style={styles.settingIconText}>
-              <Ionicons
-                name={isDarkMode ? "moon" : "sunny"}
-                size={24}
-                color={colors.primary}
-              />
-              <Text style={[styles.settingText, { color: colors.text }]}>
-                {isDarkMode ? "Темна тема" : "Світла тема"}
-              </Text>
-            </View>
-            <Switch
-              value={isDarkMode}
-              onValueChange={toggleTheme}
-              trackColor={{ false: "#D1D5DB", true: colors.primary }}
-              thumbColor="#FFFFFF"
+        {/* Секція теми */}
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>ОФОРМЛЕННЯ</Text>
+        <View style={[styles.rowCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.rowLeft}>
+            <Ionicons
+              name={isDarkMode ? "moon" : "sunny"}
+              size={22}
+              color={isDarkMode ? "#A78BFA" : "#F59E0B"}
             />
+            <Text style={[styles.rowText, { color: colors.text }]}>Темна тема</Text>
           </View>
+          <Switch value={isDarkMode} onValueChange={toggleTheme} />
         </View>
 
-        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
-            Керування даними
-          </Text>
-          
-          <TouchableOpacity
-            style={[styles.actionButton, { borderBottomColor: colors.border, borderBottomWidth: 1 }]}
-            onPress={handleClearCompleted}
-            disabled={isProcessing}
-          >
-            <Ionicons name="checkmark-done-outline" size={22} color={colors.text} />
-            <Text style={[styles.actionText, { color: colors.text }]}>Очистити виконані завдання</Text>
-          </TouchableOpacity>
+        {/* Секція керування даними Convex */}
+        <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>КЕРУВАННЯ ХМАРОЮ CONVEX</Text>
+        
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={handleClearCompleted}
+        >
+          <Ionicons name="checkmark-done" size={20} color="#F59E0B" />
+          <Text style={[styles.actionButtonText, { color: colors.text }]}>Видалити виконані завдання</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleDeleteAll}
-            disabled={isProcessing}
-          >
-            <Ionicons name="trash-bin-outline" size={22} color={colors.danger} />
-            <Text style={[styles.actionText, { color: colors.danger }]}>Видалити всі завдання</Text>
-            {isProcessing && <ActivityIndicator size="small" color={colors.danger} style={{ marginLeft: "auto" }} />}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.dangerButton, { backgroundColor: colors.surface, borderColor: colors.danger }]}
+          onPress={handleClearAll}
+        >
+          <Ionicons name="trash" size={20} color={colors.danger} />
+          <Text style={[styles.actionButtonText, { color: colors.danger }]}>Видалити абсолютно всі завдання</Text>
+        </TouchableOpacity>
 
-        <View style={[styles.aboutSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Ionicons name="layers-outline" size={40} color={colors.primary} />
-          <Text style={[styles.appName, { color: colors.text }]}>RN Todo List</Text>
-          <Text style={[styles.appVersion, { color: colors.textMuted }]}>v2.0.0</Text>
-        </View>
+        {/* Інфо */}
+        <Text style={[styles.versionText, { color: colors.textMuted }]}>
+          Todo App v3.0 (Convex Cloud Edition)
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  container: {
-    padding: 16,
-  },
-  headerText: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 20,
-    marginTop: 8,
-  },
-  section: {
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 24,
-    overflow: "hidden",
-  },
-  settingRow: {
+  container: { flex: 1 },
+  content: { padding: 20 },
+  title: { fontSize: 28, fontWeight: "bold", marginBottom: 20 },
+  sectionHeader: { fontSize: 12, fontWeight: "bold", marginTop: 16, marginBottom: 8, letterSpacing: 0.5 },
+  rowCard: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
     padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  settingIconText: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  settingText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
+  rowLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  rowText: { fontSize: 16, fontWeight: "500" },
   actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
     gap: 12,
-  },
-  actionText: {
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  aboutSection: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 32,
-    borderRadius: 16,
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
+    marginBottom: 10,
   },
-  appName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 12,
-  },
-  appVersion: {
-    fontSize: 14,
-    marginTop: 4,
-  },
+  dangerButton: {},
+  actionButtonText: { fontSize: 15, fontWeight: "500" },
+  versionText: { textAlign: "center", marginTop: 32, fontSize: 12 },
 });
